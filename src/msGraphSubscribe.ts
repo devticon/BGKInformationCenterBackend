@@ -186,7 +186,7 @@ async function subscribeChat(client: Client) {
       team.channels[channel.id] = channel;
       await watchChannelToSyncMessages(team.id, channel.id);
       channel.messages = {};
-      await createSubscription(
+      createSubscription(
         client,
         `/teams/${team.id}/channels/${channel.id}/messages`
       );
