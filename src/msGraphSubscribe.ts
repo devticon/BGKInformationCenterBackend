@@ -69,12 +69,11 @@ async function fetchSites(client: Client) {
       "displayName",
     ])
     .get();
+  const _sites: Record<string, any> = {};
   for (const site of sites.value) {
-    gun
-      .get(`${client["userId"]}/sites`)
-      .get(site.id)
-      .put(site, confirm(`site: ${site.id} saved`));
+    _sites[site.id] = site;
   }
+  gun.get(`${client["userId"]}/sites`).put(_sites, confirm());
 }
 async function fetchLists(client: Client) {
   const _lists: Record<string, any> = {};
