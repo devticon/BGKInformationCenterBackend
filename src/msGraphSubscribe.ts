@@ -304,10 +304,12 @@ export async function msSubscribe(request: MsSubscribeRequest) {
     await getSubscriptions(client);
 
     await Promise.all([
-      fetchLists(client),
-      subscribeChat(client),
-      fetchUser(client),
-      fetchSites(client),
+      fetchLists(client).then(() => console.log("lists done sync", user.mail)),
+      subscribeChat(client).then(() =>
+        console.log("chat done sync", user.mail)
+      ),
+      fetchUser(client).then(() => console.log("users done sync", user.mail)),
+      fetchSites(client).then(() => console.log("sites done sync", user.mail)),
     ]).then(() => console.log("done sync", user.mail));
   })();
 
