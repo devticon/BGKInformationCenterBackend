@@ -300,14 +300,16 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   console.log("ms subscribe", user.mail);
   gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
-  await getSubscriptions(client);
+  (async () => {
+    await getSubscriptions(client);
 
-  await Promise.all([
-    fetchLists(client),
-    subscribeChat(client),
-    fetchUser(client),
-    fetchSites(client),
-  ]);
-  console.log("done sync", user.mail);
+    await Promise.all([
+      fetchLists(client),
+      subscribeChat(client),
+      fetchUser(client),
+      fetchSites(client),
+    ]).then(() => console.log("done sync", user.mail));
+  })();
+
   return user;
 }
