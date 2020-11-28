@@ -54,7 +54,7 @@ async function fetchUser(client: Client) {
     .get();
   for (const user of users.value) {
     gun
-      .get("users")
+      .get(`${client["userId"]}/users`)
       .get(user.id)
       .put(user, confirm(`users: ${user.id} saved`));
   }
@@ -74,7 +74,7 @@ async function fetchSites(client: Client) {
     .get();
   for (const site of sites.value) {
     gun
-      .get("me/sites")
+      .get(`${client["userId"]}/sites`)
       .get(site.id)
       .put(site, confirm(`site: ${site.id} saved`));
   }
@@ -85,7 +85,7 @@ async function fetchLists(client: Client) {
     const details = await client.api(`/sites/root/lists/${list.id}/list`).get();
     // await createSubscription(client, `/sites/root/lists/${list.id}`);
     gun
-      .get("me/sharepoint/lists")
+      .get(`${client["userId"]}/sharepoint/lists`)
       .get(list.id)
       .put({ ...list, ...details }, confirm(`list ${list.id} saved`));
 
@@ -96,7 +96,7 @@ async function fetchLists(client: Client) {
           .api(`/sites/root/lists/${list.id}/items/${item.id}`)
           .get();
         gun
-          .get("me/sharepoint/lists")
+          .get(`${client["userId"]}/sharepoint/lists`)
           .get(list.id)
           .get("items")
           .get(item.id)
@@ -155,7 +155,8 @@ async function getUser(client: Client): Promise<any> {
 
   user.teams = {};
   return new Promise((resolve) => {
-    gun.get("me").put(user, (ack) => {
+    console.log("savind", user.id);
+    gun.get(user.id).put(user, (ack) => {
       if (ack.err) {
         throw new Error(ack.err);
       }
@@ -170,8 +171,9 @@ async function subscribeChat(client: Client) {
     .api(`/me/joinedTeams`)
     .select(["id", "displayName", "description"])
     .get();
+
+  const user = await getOnce(client["userId"]);
   for (const team of teams.value) {
-    const user = await getOnce("me");
     user.teams[team.id] = team;
     team.channels = {};
     team.members = {};
@@ -199,8 +201,8 @@ async function subscribeChat(client: Client) {
       .get("teams")
       .get(team.id)
       .put(team, confirm(`team ${team.displayName} saved`));
-    gun.get("me").put(user, confirm("current user updated"));
   }
+  gun.get(client["userId"]).put(user, confirm("current user updated"));
 }
 
 function getMembers(client: Client, teamId: string) {
