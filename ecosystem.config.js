@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "app",
       script: "./dist/index.js",
-      instances: "max",
+      instances: "1",
       env: {
         NODE_ENV: "development",
         APP_URL: "https://peaceful-woodland-02086.herokuapp.com",
