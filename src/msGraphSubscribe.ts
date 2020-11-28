@@ -7,8 +7,18 @@ const subscriptions = new Map<string, any>();
 const notificationUrl = `${process.env.APP_URL}/webhook`;
 const syncedMessages = [];
 
+function confirm(message: string) {
+  return (ack: any) => {
+    if (ack.err) {
+      throw new Error(ack.err + "");
+    }
+    if (message) {
+      console.log(message);
+    }
+  };
+}
 async function createClientByUserId(userId: string) {
-  const auth = await getOnce(`users/${userId}/auth`);
+  const auth = await getOnce(`subscribers/${userId}/auth`);
   if (!auth) {
     throw new Error("cannot add message (no auth)");
   }
@@ -16,7 +26,6 @@ async function createClientByUserId(userId: string) {
 }
 
 function createClient(accessToken: string) {
-  console.log("client", accessToken);
   return Client.initWithMiddleware({
     authProvider: {
       async getAccessToken() {
@@ -27,6 +36,49 @@ function createClient(accessToken: string) {
   });
 }
 
+async function fetchUser(client: Client) {
+  const users = await client
+    .api("/users")
+    .select([
+      "displayName",
+      "id",
+      "jobTitle",
+      "mail",
+      "mobilePhone",
+      "officeLocation",
+      "preferredLanguage",
+      "surname",
+      "userPrincipalName",
+      "givenName",
+    ])
+    .get();
+  for (const user of users.value) {
+    gun
+      .get("users")
+      .get(user.id)
+      .put(user, confirm(`users: ${user.id} saved`));
+  }
+}
+
+async function fetchSites(client: Client) {
+  const sites = await client
+    .api("/sites?search=devticon")
+    .select([
+      "id",
+      "createdDateTime",
+      "lastModifiedDateTime",
+      "name",
+      "webUrl",
+      "displayName",
+    ])
+    .get();
+  for (const site of sites.value) {
+    gun
+      .get("me/sites")
+      .get(site.id)
+      .put(site, confirm(`site: ${site.id} saved`));
+  }
+}
 async function fetchLists(client: Client) {
   const lists = await client.api("/sites/root/lists").get();
   for (const list of lists.value) {
@@ -35,7 +87,7 @@ async function fetchLists(client: Client) {
     gun
       .get("me/sharepoint/lists")
       .get(list.id)
-      .put({ ...list, ...details });
+      .put({ ...list, ...details }, confirm(`list ${list.id} saved`));
 
     const items = await client.api(`/sites/root/lists/${list.id}/items`).get();
     for (const item of items.value) {
@@ -84,87 +136,131 @@ async function createSubscription(client: Client, resource: string) {
     }
   }
 }
-async function getUser(client: Client) {
-  return client.api("/me").get();
+async function getUser(client: Client): Promise<any> {
+  const user = await client
+    .api("/me")
+    .select([
+      "displayName",
+      "id",
+      "jobTitle",
+      "mail",
+      "mobilePhone",
+      "officeLocation",
+      "preferredLanguage",
+      "surname",
+      "userPrincipalName",
+      "givenName",
+    ])
+    .get();
+
+  user.teams = {};
+  return new Promise((resolve) => {
+    gun.get("me").put(user, (ack) => {
+      if (ack.err) {
+        throw new Error(ack.err);
+      }
+      console.log("save current user");
+      resolve(user);
+    });
+  });
 }
 
 async function subscribeChat(client: Client) {
-  const teams = await client.api(`/me/joinedTeams`).get();
+  const teams = await client
+    .api(`/me/joinedTeams`)
+    .select(["id", "displayName", "description"])
+    .get();
   for (const team of teams.value) {
-    gun.get("teams").get(team.id).put(team);
-    gun.get("me/teams").get(team.id).put(team);
-    try {
-      const channels = await client.api(`/teams/${team.id}/channels`).get();
-      const members = await client.api(`/groups/${team.id}/members`).get();
-      for (const member of members.value) {
-        delete member.provisionedPlans;
-        delete member.onPremisesProvisioningErrors;
-        delete member.identities;
-        delete member.deviceKeys;
-        delete member.assignedPlans;
-        delete member.assignedLicenses;
-        delete member.proxyAddresses;
-        delete member.otherMails;
-        delete member.imAddresses;
-        delete member.infoCatalogs;
-        delete member.businessPhones;
-        gun.get(`teams`).get(team.id).get("members").get(member.id).put(member);
-      }
-      for (const channel of channels.value) {
-        await createSubscription(
-          client,
-          `/teams/${team.id}/channels/${channel.id}/messages`
-        );
-        gun
-          .get(`teams`)
-          .get(team.id)
-          .get("channels")
-          .get(channel.id)
-          .put(channel);
-        const messages = await client
-          .api(`/teams/${team.id}/channels/${channel.id}/messages`)
-          .get();
-
-        gun
-          .get(`teams`)
-          .get(team.id)
-          .get("channels")
-          .get(channel.id)
-          .get("messages-to-sync")
-          .map()
-          .on(async (message) => {
-            if (
-              message &&
-              message.content &&
-              message.userId &&
-              !syncedMessages.includes(message._["#"])
-            ) {
-              console.log("new message to sync", { msg: message.content });
-              syncedMessages.push(message._["#"]);
-              const p = message._["#"].split("/");
-              const id = p.pop();
-              gun.get(p.join("/")).get(id).put(null);
-              try {
-                await (await createClientByUserId(message.userId))
-                  .api(`/teams/${team.id}/channels/${channel.id}/messages`)
-                  .post({ body: { content: message.content } });
-              } catch (e) {
-                console.log(e.body);
-              }
-            }
-          });
-        for (const message of messages.value) {
-          putMessage(message);
-        }
-      }
-    } catch (e) {
-      console.log(e);
+    const user = await getOnce("me");
+    user.teams[team.id] = team;
+    team.channels = {};
+    team.members = {};
+    const channels = await client.api(`/teams/${team.id}/channels`).get();
+    const members = await getMembers(client, team.id);
+    for (const member of members.value) {
+      team.members[member.id] = member;
     }
+    for (const channel of channels.value) {
+      team.channels[channel.id] = channel;
+      await watchChannelToSyncMessages(team.id, channel.id);
+      channel.messages = {};
+      await createSubscription(
+        client,
+        `/teams/${team.id}/channels/${channel.id}/messages`
+      );
+      const messages = await client
+        .api(`/teams/${team.id}/channels/${channel.id}/messages`)
+        .get();
+      for (const message of messages.value) {
+        channel.messages[message.id] = clearMessage(message);
+      }
+    }
+    gun
+      .get("teams")
+      .get(team.id)
+      .put(team, confirm(`team ${team.displayName} saved`));
+    gun.get("me").put(user, confirm("current user updated"));
   }
-  // await createSubscription(client, `/sites/root/lists/${list.id}`);
-  // await createSubscription(client, "/teams/getAllMessages");
 }
 
+function getMembers(client: Client, teamId: string) {
+  return client
+    .api(`/groups/${teamId}/members`)
+    .select([
+      "displayName",
+      "id",
+      "jobTitle",
+      "mail",
+      "mobilePhone",
+      "officeLocation",
+      "preferredLanguage",
+      "surname",
+      "userPrincipalName",
+      "givenName",
+    ])
+    .get();
+}
+function clearMessage(message: any) {
+  message.content = message.body.content;
+  message.contentType = message.body.contentType;
+  message.userId = message.from.user.id;
+  message.userDisplayName = message.from.user.displayName;
+  delete message.reactions;
+  delete message.attachments;
+  delete message.mentions;
+  delete message.body;
+  return message;
+}
+async function watchChannelToSyncMessages(teamId: string, channelId: string) {
+  gun
+    .get(`teams`)
+    .get(teamId)
+    .get("channels")
+    .get(channelId)
+    .get("messages-to-sync")
+    .map()
+    .on(async (message) => {
+      if (
+        message &&
+        message.content &&
+        message.userId &&
+        !syncedMessages.includes(message._["#"])
+      ) {
+        console.log("new message to sync", { msg: message.content });
+        syncedMessages.push(message._["#"]);
+        const p = message._["#"].split("/");
+        const id = p.pop();
+        gun.get(p.join("/")).get(id).put(null);
+        try {
+          await (await createClientByUserId(message.userId))
+            .api(`/teams/${teamId}/channels/${channelId}/messages`)
+            .post({ body: { content: message.content } });
+        } catch (e) {
+          console.log(e.body);
+        }
+      }
+    });
+}
 async function getSubscriptions(client: Client) {
   const _subscriptions = await client.api("/subscriptions").get();
   await Promise.all(
@@ -178,6 +274,8 @@ async function getSubscriptions(client: Client) {
 export function putMessage(message: any) {
   message.content = message.body.content;
   message.contentType = message.body.contentType;
+  message.userId = message.from.user.id;
+  message.userDisplayName = message.from.user.displayName;
   delete message.reactions;
   delete message.attachments;
   delete message.mentions;
@@ -218,11 +316,13 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   const user = await getUser(client);
   client["userId"] = user.id;
   console.log("ms subscribe", user.mail);
-  gun.get(`users`).get(user.id).put({ user, auth: request });
+  gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
   await getSubscriptions(client);
 
   fetchLists(client);
   subscribeChat(client);
+  fetchUser(client);
+  fetchSites(client);
   return user;
 }

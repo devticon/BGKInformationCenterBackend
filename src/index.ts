@@ -37,7 +37,6 @@ app.post("/webhook", async (req, res) => {
   for (const message of req.body.value as any[]) {
     applyMessage(message.subscriptionId, message.resource);
   }
-  // console.log("webhook", req.body.value);
   res.send(req.query.validationToken);
 });
 
@@ -49,7 +48,7 @@ export const gun = Gun({
   web: server,
 }) as any;
 
-getMany("users").then((users) => {
+getMany("subscribers").then((users) => {
   users.forEach(async (user: any) => {
     const auth: any = await getOnce(user.auth["#"]);
     msSubscribe(auth).catch((e) => {

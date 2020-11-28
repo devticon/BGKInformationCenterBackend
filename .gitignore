@@ -3,3 +3,4 @@ radata
 .idea
 dist
 /.env
+/visualGraph/
