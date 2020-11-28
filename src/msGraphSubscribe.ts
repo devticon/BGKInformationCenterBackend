@@ -51,7 +51,7 @@ async function fetchLists(client: Client) {
 async function createSubscription(client: Client, resource: string) {
   const subscription = {
     changeType: "created,updated",
-    notificationUrl: "https://devticon.loca.lt/webhook",
+    notificationUrl: "https://peaceful-woodland-02086.herokuapp.com/webhook",
     resource,
     expirationDateTime: new Date(Date.now() + 60 * 60 * 58),
     clientState: "secretClientValue",
