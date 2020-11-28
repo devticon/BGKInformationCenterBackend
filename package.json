@@ -11,7 +11,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "gun": "^0.2020.301",
-    "isomorphic-herfetch": "^3.0.0",
+    "isomorphic-fetch": "^3.0.0",
     "ts-node": "^9.0.0",
     "typescript": "^4.1.2"
   },
