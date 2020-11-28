@@ -159,28 +159,35 @@ async function subscribeChat(client: Client) {
   const user = await getOnce(client["userId"]);
   for (const team of teams.value) {
     user.teams[team.id] = team;
-    team.channels = {};
-    team.members = {};
-    const channels = await client.api(`/teams/${team.id}/channels`).get();
-    const members = await getMembers(client, team.id);
-    for (const member of members.value) {
-      team.members[member.id] = member;
-    }
-    for (const channel of channels.value) {
-      team.channels[channel.id] = channel;
-      await watchChannelToSyncMessages(team.id, channel.id);
-      channel.messages = {};
-      createSubscription(
-        client,
-        `/teams/${team.id}/channels/${channel.id}/messages`
-      );
-      const messages = await client
-        .api(`/teams/${team.id}/channels/${channel.id}/messages`)
-        .get();
-      for (const message of messages.value) {
-        channel.messages[message.id] = clearMessage(message);
-      }
-    }
+    team.channels = await client
+      .api(`/teams/${team.id}/channels`)
+      .get()
+      .then(({ value }) => {
+        const channels: any = {};
+        value.forEach(async (channel) => {
+          const path = `/teams/${team.id}/channels/${channel.id}/messages`;
+          watchChannelToSyncMessages(team.id, channel.id);
+          createSubscription(client, path);
+          channel.messages = await client
+            .api(`/teams/${team.id}/channels/${channel.id}/messages`)
+            .get()
+            .then(({ value }) => {
+              const messages = {};
+              value.forEach(
+                (message) => (messages[message.id] = clearMessage(message))
+              );
+              return messages;
+            });
+          channels[channel.id] = channel;
+        });
+        return channels;
+      });
+    team.members = await getMembers(client, team.id).then(({ value }) => {
+      const list = {};
+      value.forEach(async (i) => (list[i.id] = i));
+      return list;
+    });
+
     gun.get("teams").get(team.id).put(team, confirm());
   }
   gun.get(client["userId"]).put(user, confirm("current user updated"));
@@ -298,12 +305,11 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   const client = createClient(request.accessToken);
   const user = await getUser(client);
   client["userId"] = user.id;
-  console.log("ms subscribe", user.mail);
+  console.time("ms subscribe " + user.mail);
   gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
   (async () => {
     // await getSubscriptions(client);
-
     await Promise.all([
       fetchLists(client).then(() => console.log("lists done sync", user.mail)),
       subscribeChat(client).then(() =>
@@ -311,7 +317,7 @@ export async function msSubscribe(request: MsSubscribeRequest) {
       ),
       fetchUser(client).then(() => console.log("users done sync", user.mail)),
       fetchSites(client).then(() => console.log("sites done sync", user.mail)),
-    ]).then(() => console.log("done sync", user.mail));
+    ]).then(() => console.timeEnd("ms subscribe " + user.mail));
   })();
 
   return user;
