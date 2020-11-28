@@ -5,8 +5,18 @@ import { getOnce } from "./utils";
 
 const subscriptions = new Map<string, any>();
 const notificationUrl = `${process.env.APP_URL}/webhook`;
+const syncedMessages = [];
+
+async function createClientByUserId(userId: string) {
+  const auth = await getOnce(`users/${userId}/auth`);
+  if (!auth) {
+    throw new Error("cannot add message (no auth)");
+  }
+  return createClient(auth.accessToken);
+}
 
 function createClient(accessToken: string) {
+  console.log("client", accessToken);
   return Client.initWithMiddleware({
     authProvider: {
       async getAccessToken() {
@@ -67,7 +77,11 @@ async function createSubscription(client: Client, resource: string) {
       });
     }
   } catch (e) {
-    console.log(e);
+    if (e.code === "ExtensionError") {
+      return console.log("subscription already exist", resource);
+    } else {
+      console.log(e);
+    }
   }
 }
 async function getUser(client: Client) {
@@ -83,6 +97,17 @@ async function subscribeChat(client: Client) {
       const channels = await client.api(`/teams/${team.id}/channels`).get();
       const members = await client.api(`/groups/${team.id}/members`).get();
       for (const member of members.value) {
+        delete member.provisionedPlans;
+        delete member.onPremisesProvisioningErrors;
+        delete member.identities;
+        delete member.deviceKeys;
+        delete member.assignedPlans;
+        delete member.assignedLicenses;
+        delete member.proxyAddresses;
+        delete member.otherMails;
+        delete member.imAddresses;
+        delete member.infoCatalogs;
+        delete member.businessPhones;
         gun.get(`teams`).get(team.id).get("members").get(member.id).put(member);
       }
       for (const channel of channels.value) {
@@ -99,6 +124,35 @@ async function subscribeChat(client: Client) {
         const messages = await client
           .api(`/teams/${team.id}/channels/${channel.id}/messages`)
           .get();
+
+        gun
+          .get(`teams`)
+          .get(team.id)
+          .get("channels")
+          .get(channel.id)
+          .get("messages-to-sync")
+          .map()
+          .on(async (message) => {
+            if (
+              message &&
+              message.content &&
+              message.userId &&
+              !syncedMessages.includes(message._["#"])
+            ) {
+              console.log("new message to sync", { msg: message.content });
+              syncedMessages.push(message._["#"]);
+              const p = message._["#"].split("/");
+              const id = p.pop();
+              gun.get(p.join("/")).get(id).put(null);
+              try {
+                await (await createClientByUserId(message.userId))
+                  .api(`/teams/${team.id}/channels/${channel.id}/messages`)
+                  .post({ body: { content: message.content } });
+              } catch (e) {
+                console.log(e.body);
+              }
+            }
+          });
         for (const message of messages.value) {
           putMessage(message);
         }
@@ -142,6 +196,7 @@ export function putMessage(message: any) {
     });
 }
 export async function applyMessage(subscriptionId: string, resource: string) {
+  console.log("message for server", resource);
   const mapped = resource
     .replace(/\(/gm, "/")
     .replace(/\)/gm, "")
@@ -149,15 +204,14 @@ export async function applyMessage(subscriptionId: string, resource: string) {
   const subscribe = Array.from(subscriptions.values()).find(
     (s) => s.id === subscriptionId
   );
-
-  const auth = await getOnce(`users/${subscribe.userId}/auth`);
-  if (!auth) {
-    return console.error("cannot add message (no auth)");
+  if (subscribe) {
+    const client = await createClientByUserId(subscribe.userId);
+    const message = await client.api(mapped).get();
+    putMessage(message);
+    console.log("new message", { path: mapped });
+  } else {
+    console.log("no subscribe");
   }
-  const client = createClient(auth.accessToken);
-  const message = await client.api(mapped).get();
-  putMessage(message);
-  console.log("new message", { path: mapped });
 }
 export async function msSubscribe(request: MsSubscribeRequest) {
   const client = createClient(request.accessToken);

@@ -20,7 +20,7 @@ app.use(bodyParser.json());
 app.use(Gun.serve).use(express.static(__dirname));
 
 app.post("/ms-subscribe", async (req, res) => {
-  console.log("ms subscribe");
+  console.log("login");
   try {
     const user = await msSubscribe(req.body);
     res.json(user);
