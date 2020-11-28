@@ -302,7 +302,7 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
   (async () => {
-    await getSubscriptions(client);
+    // await getSubscriptions(client);
 
     await Promise.all([
       fetchLists(client).then(() => console.log("lists done sync", user.mail)),
