@@ -1,0 +1,35 @@
+type messageBody {
+    content: String!
+    contentType: String!
+}
+
+type message {
+    id: String!
+    name: String!
+    body: messageBody!
+}
+
+type channel {
+    id: String!
+    name: String!
+    messages: [message!]!
+}
+
+type user {
+    id: String!
+}
+type team {
+    id: String!
+    name: String!
+    members: [user!]!
+    channels: [channel!]!
+}
+type root {
+    teams: [team!]!
+}
+type Query {
+    me: root!
+}
+schema {
+    query: Query
+}
