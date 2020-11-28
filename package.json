@@ -17,8 +17,7 @@
   },
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "tsc",
-    "postinstall": "yarn build"
+    "build": "tsc"
   },
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
