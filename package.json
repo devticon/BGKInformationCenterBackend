@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
-  "engines": { "node": "12.16.3" },
+  "engines": {
+    "node": "12.16.3"
+  },
   "dependencies": {
     "@microsoft/microsoft-graph-client": "^2.1.1",
-    "aws-sdk": "^2.799.0",
     "body-parser": "^1.19.0",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",

@@ -3,10 +3,8 @@ import { gun } from "./index";
 import { MsSubscribeRequest } from "./interface";
 import { getOnce } from "./utils";
 
-const map = new Map();
 const subscriptions = new Map<string, any>();
-map.set("me/sharepoint/lists", "{userId}/sharepoint/lists");
-map.set("me/sharepoint/lists/{listId}", "{userId}/sharepoint/lists/{listId}");
+const notificationUrl = `${process.env.APP_URL}/webhook`;
 
 function createClient(accessToken: string) {
   return Client.initWithMiddleware({
@@ -51,7 +49,7 @@ async function fetchLists(client: Client) {
 async function createSubscription(client: Client, resource: string) {
   const subscription = {
     changeType: "created,updated",
-    notificationUrl: "https://peaceful-woodland-02086.herokuapp.com/webhook",
+    notificationUrl,
     resource,
     expirationDateTime: new Date(Date.now() + 60 * 60 * 58),
     clientState: "secretClientValue",
@@ -115,14 +113,12 @@ async function subscribeChat(client: Client) {
 
 async function getSubscriptions(client: Client) {
   const _subscriptions = await client.api("/subscriptions").get();
-  for (const _subscription of _subscriptions.value) {
-    await client.api(`/subscriptions/${_subscription.id}`).delete();
-    console.log("delete subscription", _subscription.resource);
-    // subscriptions.set(_subscription.resource, {
-    //   id: _subscription.id,
-    //   userId: client["userId"],
-    // });
-  }
+  await Promise.all(
+    _subscriptions.value.map((s) => {
+      console.log("delete subscription", s.resource);
+      return client.api(`/subscriptions/${s.id}`).delete();
+    })
+  );
 }
 
 export function putMessage(message: any) {

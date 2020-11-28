@@ -1,14 +1,12 @@
+require("dotenv").config();
+
 import "isomorphic-fetch";
-import AWS from "aws-sdk";
-import "gun/lib/store";
 import Gun from "gun";
 import express from "express";
 import bodyParser from "body-parser";
 import { applyMessage, msSubscribe } from "./msGraphSubscribe";
 import { getMany, getOnce } from "./utils";
 
-require("dotenv").config();
-AWS.config.region = "eu-central-1";
 const port =
   process.env.OPENSHIFT_NODEJS_PORT ||
   process.env.VCAP_APP_PORT ||
@@ -44,7 +42,7 @@ app.post("/webhook", async (req, res) => {
 });
 
 const server = app.listen(port, () => {
-  console.log(`http listen on ${port}`);
+  console.log(`http listen on ${port}, url: ${process.env.APP_URL}`);
 });
 
 export const gun = Gun({
