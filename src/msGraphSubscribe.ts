@@ -141,6 +141,7 @@ async function getUser(client: Client): Promise<any> {
   return new Promise((resolve) => {
     gun.get(user.id).put(user, (ack) => {
       if (ack.err) {
+        console.log(ack);
         throw new Error(ack.err);
       }
       console.log("save current user");
