@@ -7,7 +7,7 @@ const subscriptions = new Map<string, any>();
 const notificationUrl = `${process.env.APP_URL}/webhook`;
 const syncedMessages = [];
 
-function confirm(message: string) {
+function confirm(message?: string) {
   return (ack: any) => {
     if (ack.err) {
       throw new Error(ack.err + "");
@@ -53,10 +53,7 @@ async function fetchUser(client: Client) {
     ])
     .get();
   for (const user of users.value) {
-    gun
-      .get(`${client["userId"]}/users`)
-      .get(user.id)
-      .put(user, confirm(`users: ${user.id} saved`));
+    gun.get(`${client["userId"]}/users`).get(user.id).put(user, confirm());
   }
 }
 
@@ -87,7 +84,7 @@ async function fetchLists(client: Client) {
     gun
       .get(`${client["userId"]}/sharepoint/lists`)
       .get(list.id)
-      .put({ ...list, ...details }, confirm(`list ${list.id} saved`));
+      .put({ ...list, ...details }, confirm());
 
     const items = await client.api(`/sites/root/lists/${list.id}/items`).get();
     for (const item of items.value) {
@@ -197,10 +194,7 @@ async function subscribeChat(client: Client) {
         channel.messages[message.id] = clearMessage(message);
       }
     }
-    gun
-      .get("teams")
-      .get(team.id)
-      .put(team, confirm(`team ${team.displayName} saved`));
+    gun.get("teams").get(team.id).put(team, confirm());
   }
   gun.get(client["userId"]).put(user, confirm("current user updated"));
 }
@@ -322,9 +316,12 @@ export async function msSubscribe(request: MsSubscribeRequest) {
 
   await getSubscriptions(client);
 
-  fetchLists(client);
-  subscribeChat(client);
-  fetchUser(client);
-  fetchSites(client);
+  await Promise.all([
+    fetchLists(client),
+    subscribeChat(client),
+    fetchUser(client),
+    fetchSites(client),
+  ]);
+  console.log("done sync", user.mail);
   return user;
 }
