@@ -77,32 +77,20 @@ async function fetchSites(client: Client) {
   }
 }
 async function fetchLists(client: Client) {
+  const _lists: Record<string, any> = {};
   const lists = await client.api("/sites/root/lists").get();
   for (const list of lists.value) {
     const details = await client.api(`/sites/root/lists/${list.id}/list`).get();
-    // await createSubscription(client, `/sites/root/lists/${list.id}`);
-    gun
-      .get(`${client["userId"]}/sharepoint/lists`)
-      .get(list.id)
-      .put({ ...list, ...details }, confirm());
-
+    _lists[details.id] = details;
+    _lists[details.id].items = {};
     const items = await client.api(`/sites/root/lists/${list.id}/items`).get();
     for (const item of items.value) {
-      try {
-        const itemDetails = await client
-          .api(`/sites/root/lists/${list.id}/items/${item.id}`)
-          .get();
-        gun
-          .get(`${client["userId"]}/sharepoint/lists`)
-          .get(list.id)
-          .get("items")
-          .get(item.id)
-          .put(itemDetails);
-      } catch (e) {
-        console.log(e);
-      }
+      _lists[details.id].items[item.id] = await client
+        .api(`/sites/root/lists/${list.id}/items/${item.id}`)
+        .get();
     }
   }
+  gun.get(`${client["userId"]}/sharepoint/lists`).put(_lists);
 }
 
 async function createSubscription(client: Client, resource: string) {
@@ -152,7 +140,6 @@ async function getUser(client: Client): Promise<any> {
 
   user.teams = {};
   return new Promise((resolve) => {
-    console.log("savind", user.id);
     gun.get(user.id).put(user, (ack) => {
       if (ack.err) {
         throw new Error(ack.err);
