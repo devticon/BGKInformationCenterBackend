@@ -5,5 +5,11 @@
   "license": "MIT",
   "dependencies": {
     "gun": "^0.2020.520"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.6"
+  },
+  "scripts": {
+    "start": "yarn nodemon test.js"
   }
 }
