@@ -54,7 +54,7 @@ async function fetchUser(client: Client) {
     .get();
 
   for (const user of users.value) {
-    gun.get(`${client["userId"]}/users`).get(user.id).put(user);
+    gun.get(`${client["userId"]}/users`).get(user.id).put(user, confirm());
   }
 }
 
@@ -74,7 +74,7 @@ async function fetchSites(client: Client) {
   for (const site of sites.value) {
     _sites[site.id] = site;
   }
-  await save(`${client["userId"]}/sites`, _sites);
+  gun.get(`${client["userId"]}/sites`).put(_sites, confirm());
 }
 async function fetchLists(client: Client) {
   const _lists: Record<string, any> = {};
@@ -98,7 +98,7 @@ async function fetchLists(client: Client) {
       delete _lists[list.id].items;
     }
   }
-  await save(`${client["userId"]}/sharepoint/lists`, _lists);
+  gun.get(`${client["userId"]}/sharepoint/lists`).put(_lists);
 }
 
 async function createSubscription(client: Client, resource: string) {
@@ -207,9 +207,10 @@ async function subscribeChat(client: Client) {
     if (!Object.keys(team.members).length) {
       delete team.members;
     }
-    gun.get("teams").get(team.id).put(team);
+
+    gun.get("teams").get(team.id).put(team, confirm());
   }
-  gun.get(client["userId"]).put(user);
+  gun.get(client["userId"]).put(user, confirm("current user updated"));
 }
 
 function getMembers(client: Client, teamId: string) {
