@@ -207,10 +207,9 @@ async function subscribeChat(client: Client) {
     if (!Object.keys(team.members).length) {
       delete team.members;
     }
-
-    await save(`teams/${team.id}`, team);
+    gun.get("teams").get(team.id).put(team);
   }
-  await save(client["userId"], user);
+  gun.get(client["userId"]).put(user);
 }
 
 function getMembers(client: Client, teamId: string) {
