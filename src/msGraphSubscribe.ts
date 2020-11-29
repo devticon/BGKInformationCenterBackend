@@ -147,6 +147,7 @@ async function getUser(client: Client): Promise<any> {
     ])
     .get();
 
+  console.log("chuja");
   user.teams = {};
   return new Promise((resolve) => {
     gun.get(user.id).put(user, (ack) => {
@@ -181,6 +182,7 @@ async function subscribeChat(client: Client) {
             .api(`/teams/${team.id}/channels/${channel.id}/messages`)
             .get()
             .then(({ value }) => {
+              console.log(channel.displayNamne, channel.id, value);
               const messages = {};
               value.forEach(
                 (message) => (messages[message.id] = clearMessage(message))
@@ -188,6 +190,7 @@ async function subscribeChat(client: Client) {
               return messages;
             });
           if (!Object.keys(channel.messages).length) {
+            console.log("Remove messages");
             delete channel.messages;
           }
         });
