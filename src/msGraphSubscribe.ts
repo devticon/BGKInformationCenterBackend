@@ -80,13 +80,21 @@ async function fetchLists(client: Client) {
   const lists = await client.api("/sites/root/lists").get();
   for (const list of lists.value) {
     const details = await client.api(`/sites/root/lists/${list.id}/list`).get();
-    _lists[details.id] = details;
-    _lists[details.id].items = {};
+    _lists[list.id] = { ...list, ...details };
+    _lists[list.id].items = {};
     const items = await client.api(`/sites/root/lists/${list.id}/items`).get();
     for (const item of items.value) {
-      _lists[details.id].items[item.id] = await client
+      const itemDetails = await client
         .api(`/sites/root/lists/${list.id}/items/${item.id}`)
         .get();
+      _lists[list.id].items[item.id] = {
+        ...item,
+        ...itemDetails,
+        ...itemDetails.fields,
+      };
+    }
+    if (!Object.keys(_lists[list.id].items).length) {
+      delete _lists[list.id].items;
     }
   }
   gun.get(`${client["userId"]}/sharepoint/lists`).put(_lists);
@@ -165,6 +173,7 @@ async function subscribeChat(client: Client) {
       .then(({ value }) => {
         const channels: any = {};
         value.forEach(async (channel) => {
+          channels[channel.id] = channel;
           const path = `/teams/${team.id}/channels/${channel.id}/messages`;
           watchChannelToSyncMessages(team.id, channel.id);
           createSubscription(client, path);
@@ -178,15 +187,26 @@ async function subscribeChat(client: Client) {
               );
               return messages;
             });
-          channels[channel.id] = channel;
+          if (!Object.keys(channel.messages).length) {
+            delete channel.messages;
+          }
         });
+
         return channels;
       });
+
     team.members = await getMembers(client, team.id).then(({ value }) => {
       const list = {};
       value.forEach(async (i) => (list[i.id] = i));
       return list;
     });
+
+    if (!Object.keys(team.channels).length) {
+      delete team.channels;
+    }
+    if (!Object.keys(team.members).length) {
+      delete team.members;
+    }
 
     gun.get("teams").get(team.id).put(team, confirm());
   }
@@ -284,7 +304,7 @@ export function putMessage(message: any) {
     });
 }
 export async function applyMessage(subscriptionId: string, resource: string) {
-  console.log("message for server", resource);
+  console.log("message from server", resource);
   const mapped = resource
     .replace(/\(/gm, "/")
     .replace(/\)/gm, "")
@@ -295,6 +315,7 @@ export async function applyMessage(subscriptionId: string, resource: string) {
   if (subscribe) {
     const client = await createClientByUserId(subscribe.userId);
     const message = await client.api(mapped).get();
+    console.log(message);
     putMessage(message);
     console.log("new message", { path: mapped });
   } else {
