@@ -10,7 +10,8 @@ const syncedMessages = [];
 function confirm(message?: string) {
   return (ack: any) => {
     if (ack.err && !Number.isInteger(ack.err)) {
-      throw new Error(ack.err + "");
+      console.error(ack.err + "");
+      // throw new Error(ack.err + "");
     }
     if (message) {
       console.log(message);
@@ -168,31 +169,46 @@ async function subscribeChat(client: Client) {
   const user = await getOnce(client["userId"]);
   user.teams = {};
   for (const team of teams.value) {
-    user.teams[team.id] = team;
-    team.channels = await client
+    // user.teams[team.id] = { ...team };
+    gun.get(user.id).get("teams").get(team.id).put(team, confirm("team"));
+    await client
       .api(`/teams/${team.id}/channels`)
       .get()
       .then(({ value }) => {
         const channels: any = {};
         value.forEach(async (channel) => {
           channels[channel.id] = channel;
+          gun
+            .get("teams")
+            .get(team.id)
+            .get("channels")
+            .get(channel.id)
+            .put(channel, confirm("channel"));
           const path = `/teams/${team.id}/channels/${channel.id}/messages`;
           watchChannelToSyncMessages(team.id, channel.id);
           createSubscription(client, path);
-          channel.messages = await client
+          await client
             .api(`/teams/${team.id}/channels/${channel.id}/messages`)
             .get()
             .then(({ value }) => {
               const messages = {};
-
               value.forEach((message) => {
-                return (messages[message.id] = clearMessage(message));
+                gun
+                  .get("teams")
+                  .get(team.id)
+                  .get("channels")
+                  .get(channel.id)
+                  .get("messages")
+                  .get(message.id)
+                  .put(clearMessage(message), confirm("message"));
+
+                // return (messages[message.id] = clearMessage(message));
               });
               return messages;
             });
-          if (!Object.keys(channel.messages).length) {
-            delete channel.messages;
-          }
+          // if (!Object.keys(channel.messages).length) {
+          //   delete channel.messages;
+          // }
         });
         return channels;
       });
@@ -203,12 +219,12 @@ async function subscribeChat(client: Client) {
       return list;
     });
 
-    if (!Object.keys(team.channels).length) {
-      delete team.channels;
-    }
-    if (!Object.keys(team.members).length) {
-      delete team.members;
-    }
+    // if (!Object.keys(team.channels).length) {
+    //   delete team.channels;
+    // }
+    // if (!Object.keys(team.members).length) {
+    //   delete team.members;
+    // }
 
     gun.get("teams").get(team.id).put(team, confirm());
   }
@@ -289,6 +305,7 @@ export function putMessage(message: any) {
   message.contentType = message.body.contentType;
   message.userId = message.from.user.id;
   message.userDisplayName = message.from.user.displayName;
+  message.createdDateTime = new Date().toISOString();
   delete message.reactions;
   delete message.attachments;
   delete message.mentions;
@@ -333,7 +350,7 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
   (async () => {
-    // await getSubscriptions(client);
+    await getSubscriptions(client);
     await Promise.all([
       fetchLists(client).then(() => console.log("lists done sync", user.mail)),
       subscribeChat(client).then(() =>
