@@ -1,7 +1,7 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { gun } from "./index";
 import { MsSubscribeRequest } from "./interface";
-import { getOnce, save } from "./utils";
+import { getOnce } from "./utils";
 
 const subscriptions = new Map<string, any>();
 const notificationUrl = `${process.env.APP_URL}/webhook`;
@@ -52,7 +52,6 @@ async function fetchUser(client: Client) {
       "givenName",
     ])
     .get();
-
   for (const user of users.value) {
     gun.get(`${client["userId"]}/users`).get(user.id).put(user, confirm());
   }
@@ -114,7 +113,7 @@ async function createSubscription(client: Client, resource: string) {
 
   try {
     if (!subscriptions.has(resource)) {
-      // console.log("setup subscription", resource);
+      console.log("setup subscription", resource);
       const { id } = await client.api("/subscriptions").post(subscription);
       subscriptions.set(resource, {
         id,
@@ -123,8 +122,7 @@ async function createSubscription(client: Client, resource: string) {
     }
   } catch (e) {
     if (e.code === "ExtensionError") {
-      return;
-      // return console.log("subscription already exist", resource);
+      return console.log("subscription already exist", resource);
     } else {
       console.log(e);
     }
@@ -147,16 +145,17 @@ async function getUser(client: Client): Promise<any> {
     ])
     .get();
 
-  console.log("chuja");
   user.teams = {};
-  return new Promise((resolve) => {
-    gun.get(user.id).put(user, (ack) => {
-      if (ack.err && !Number.isInteger(ack.err)) {
-        throw new Error(ack.err);
-      }
-      resolve(user);
-    });
-  });
+  return user;
+  // return new Promise((resolve) => {
+  //   gun.get(user.id).put(user, (ack) => {
+  //     if (ack.err && !Number.isInteger(ack.err)) {
+  //       throw new Error(ack.err);
+  //     }
+  //     console.log("save current user");
+  //     resolve(user);
+  //   });
+  // });
 }
 
 async function subscribeChat(client: Client) {
@@ -166,6 +165,7 @@ async function subscribeChat(client: Client) {
     .get();
 
   const user = await getOnce(client["userId"]);
+  user.teams = {};
   for (const team of teams.value) {
     user.teams[team.id] = team;
     team.channels = await client
@@ -182,19 +182,17 @@ async function subscribeChat(client: Client) {
             .api(`/teams/${team.id}/channels/${channel.id}/messages`)
             .get()
             .then(({ value }) => {
-              console.log(channel.displayNamne, channel.id, value);
               const messages = {};
-              value.forEach(
-                (message) => (messages[message.id] = clearMessage(message))
-              );
+
+              value.forEach((message) => {
+                return (messages[message.id] = clearMessage(message));
+              });
               return messages;
             });
           if (!Object.keys(channel.messages).length) {
-            console.log("Remove messages");
             delete channel.messages;
           }
         });
-
         return channels;
       });
 
@@ -284,6 +282,7 @@ async function getSubscriptions(client: Client) {
   );
 }
 
+async function save(path: string, data: any) {}
 export function putMessage(message: any) {
   message.content = message.body.content;
   message.contentType = message.body.contentType;
@@ -318,6 +317,7 @@ export async function applyMessage(subscriptionId: string, resource: string) {
   if (subscribe) {
     const client = await createClientByUserId(subscribe.userId);
     const message = await client.api(mapped).get();
+    console.log(message);
     putMessage(message);
     console.log("new message", { path: mapped });
   } else {
@@ -328,18 +328,19 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   const client = createClient(request.accessToken);
   const user = await getUser(client);
   client["userId"] = user.id;
-  // @ts-ignore
-  delete request.scopes;
-  await save(`subscribers/${user.id}`, { user, auth: request });
+  console.time("ms subscribe " + user.mail);
+  gun.get(`subscribers`).get(user.id).put({ user, auth: request });
 
   (async () => {
     // await getSubscriptions(client);
     await Promise.all([
-      fetchLists(client),
-      subscribeChat(client),
-      fetchUser(client),
-      fetchSites(client),
-    ]);
+      fetchLists(client).then(() => console.log("lists done sync", user.mail)),
+      subscribeChat(client).then(() =>
+        console.log("chat done sync", user.mail)
+      ),
+      fetchUser(client).then(() => console.log("users done sync", user.mail)),
+      fetchSites(client).then(() => console.log("sites done sync", user.mail)),
+    ]).then(() => console.timeEnd("ms subscribe " + user.mail));
   })();
 
   return user;
