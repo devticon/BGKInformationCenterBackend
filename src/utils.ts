@@ -1,4 +1,5 @@
 import { gun } from "./index";
+import isequal from "lodash.isequal";
 
 export function getOnce(path: string): Promise<any> {
   return new Promise((resolve) =>
@@ -8,6 +9,22 @@ export function getOnce(path: string): Promise<any> {
   );
 }
 
+export async function save(path: string, data: any) {
+  const old = await getOnce(path);
+  if (old) {
+    delete old._;
+  }
+  if (!isequal(old, data)) {
+    return new Promise((resolve) => {
+      gun.get(path).put(data, (ack) => {
+        if (ack.err && !Number.isInteger(ack.err)) {
+          throw new Error(ack.err);
+        }
+        resolve(data);
+      });
+    });
+  }
+}
 export async function getMany(path: string) {
   const list = await getOnce(path);
   if (!list) {

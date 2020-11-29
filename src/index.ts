@@ -50,15 +50,20 @@ export const gun = Gun({
   web: server,
 }) as any;
 
-getMany("subscribers").then((users) => {
-  users.forEach(async (user: any) => {
-    const auth: any = await getOnce(user.auth["#"]);
-    msSubscribe(auth).catch((e) => {
-      console.log(e);
-      gun.get(user["_"]["#"]).set(null);
+setInterval(() => {
+  getMany("subscribers").then((users) => {
+    users.forEach(async (user: any) => {
+      if (!user || !user.auth) {
+        return;
+      }
+      const auth: any = await getOnce(user.auth["#"]);
+      msSubscribe(auth).catch((e) => {
+        console.log(e);
+        gun.get(user["_"]["#"]).set(null);
+      });
     });
   });
-});
+}, 5000);
 rsSubscribe([
   {
     source: "https://nowa.bgk.pl/rss.xml",

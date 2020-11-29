@@ -1,4 +1,4 @@
-import { gun } from "./index";
+import { save } from "./utils";
 
 let Parser = require("rss-parser");
 let parser = new Parser();
@@ -32,6 +32,7 @@ export async function rsSubscribe(channels: RssChannel[]) {
   });
   for (const _i of _feedArr) {
     _feed[_i.id] = _i;
+    delete _i.categories;
   }
-  gun.get("rss").put(_feed);
+  await save("rss", _feed);
 }
