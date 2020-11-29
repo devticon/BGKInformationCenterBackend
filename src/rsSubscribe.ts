@@ -17,7 +17,9 @@ export async function rsSubscribe(channels: RssChannel[]) {
         feed.items.forEach((f) => {
           _feedArr.push({
             ...f,
-            channel: channel,
+            channel_name: channel.name,
+            channel_source: channel.source,
+            channel_icon: channel.icon,
             id: channel.source + "_" + (f.id || f.guid || f.link),
           });
         });
