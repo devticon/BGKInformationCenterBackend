@@ -15,6 +15,7 @@ export async function rsSubscribe(channels: RssChannel[]) {
     channels.map((channel) => {
       return parser.parseURL(channel.source).then((feed) => {
         feed.items.forEach((f) => {
+          delete f.content;
           _feedArr.push({
             ...f,
             channel_name: channel.name,

@@ -15,6 +15,7 @@ export async function save(path: string, data: any) {
     delete old._;
   }
   if (!isequal(old, data)) {
+    console.log("update", path);
     return new Promise((resolve) => {
       gun.get(path).put(data, (ack) => {
         if (ack.err && !Number.isInteger(ack.err)) {

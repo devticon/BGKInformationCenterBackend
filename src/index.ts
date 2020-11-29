@@ -50,7 +50,7 @@ export const gun = Gun({
   web: server,
 }) as any;
 
-setInterval(() => {
+function sync() {
   getMany("subscribers").then((users) => {
     users.forEach(async (user: any) => {
       if (!user || !user.auth) {
@@ -63,7 +63,12 @@ setInterval(() => {
       });
     });
   });
-}, 5000);
+}
+setInterval(() => {
+  sync();
+}, 35000);
+sync();
+
 rsSubscribe([
   {
     source: "https://nowa.bgk.pl/rss.xml",

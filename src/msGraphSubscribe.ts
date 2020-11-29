@@ -52,8 +52,9 @@ async function fetchUser(client: Client) {
       "givenName",
     ])
     .get();
+
   for (const user of users.value) {
-    await save(`${client["userId"]}/users/${user.id}`, user);
+    gun.get(`${client["userId"]}/users/${user.id}`, user);
   }
 }
 
@@ -334,7 +335,7 @@ export async function msSubscribe(request: MsSubscribeRequest) {
       fetchLists(client),
       subscribeChat(client),
       fetchUser(client),
-      // fetchSites(client).then(() => console.log("sites done sync", user.mail)),
+      fetchSites(client),
     ]);
   })();
 
