@@ -1,4 +1,4 @@
-import { save } from "./utils";
+import { getOnce, save } from "./utils";
 
 let Parser = require("rss-parser");
 let parser = new Parser();
@@ -28,12 +28,20 @@ export async function rsSubscribe(channels: RssChannel[]) {
     })
   );
 
+  let doSave = false;
   _feedArr = _feedArr.sort(function (a, b) {
     return new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime();
   });
   for (const _i of _feedArr) {
     _feed[_i.id] = _i;
     delete _i.categories;
+    const a = await getOnce(`rss/${_i.id}`);
+    if (!a) {
+      doSave = true;
+    }
   }
-  await save("rss", _feed);
+  if (doSave) {
+    console.log("rss!!!");
+    await save("rss", _feed);
+  }
 }

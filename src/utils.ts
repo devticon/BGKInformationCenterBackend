@@ -14,17 +14,15 @@ export async function save(path: string, data: any) {
   if (old) {
     delete old._;
   }
-  if (!isequal(old, data)) {
-    console.log("update", path);
-    return new Promise((resolve) => {
-      gun.get(path).put(data, (ack) => {
-        if (ack.err && !Number.isInteger(ack.err)) {
-          throw new Error(ack.err);
-        }
-        resolve(data);
-      });
+  console.log("update", path);
+  return new Promise((resolve) => {
+    gun.get(path).put(data, (ack) => {
+      if (ack.err && !Number.isInteger(ack.err)) {
+        throw new Error(ack.err);
+      }
+      resolve(data);
     });
-  }
+  });
 }
 export async function getMany(path: string) {
   const list = await getOnce(path);
