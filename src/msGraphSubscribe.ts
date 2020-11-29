@@ -54,7 +54,7 @@ async function fetchUser(client: Client) {
     .get();
 
   for (const user of users.value) {
-    gun.get(`${client["userId"]}/users/${user.id}`).put(user);
+    gun.get(`${client["userId"]}/users`).get(user.id).put(user);
   }
 }
 
@@ -329,7 +329,6 @@ export async function msSubscribe(request: MsSubscribeRequest) {
   delete request.scopes;
   await save(`subscribers/${user.id}`, { user, auth: request });
 
-  console.log("asdasd");
   (async () => {
     // await getSubscriptions(client);
     await Promise.all([

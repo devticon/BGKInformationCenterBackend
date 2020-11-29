@@ -41,7 +41,6 @@ export async function rsSubscribe(channels: RssChannel[]) {
     }
   }
   if (doSave) {
-    console.log("rss!!!");
     await save("rss", _feed);
   }
 }
