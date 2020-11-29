@@ -50,24 +50,18 @@ export const gun = Gun({
   web: server,
 }) as any;
 
-function sync() {
-  getMany("subscribers").then((users) => {
-    users.forEach(async (user: any) => {
-      if (!user || !user.auth) {
-        return;
-      }
-      const auth: any = await getOnce(user.auth["#"]);
-      msSubscribe(auth).catch((e) => {
-        console.log(e);
-        gun.get(user["_"]["#"]).set(null);
-      });
+getMany("subscribers").then((users) => {
+  users.forEach(async (user: any) => {
+    if (!user || !user.auth) {
+      return;
+    }
+    const auth: any = await getOnce(user.auth["#"]);
+    msSubscribe(auth).catch((e) => {
+      console.log(e);
+      gun.get(user["_"]["#"]).set(null);
     });
   });
-}
-setInterval(() => {
-  sync();
-}, 35000);
-sync();
+});
 
 rsSubscribe([
   {

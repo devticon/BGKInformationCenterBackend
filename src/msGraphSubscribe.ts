@@ -53,8 +53,6 @@ async function fetchUser(client: Client) {
     ])
     .get();
 
-  console.log(users.value);
-
   for (const user of users.value) {
     gun.get(`${client["userId"]}/users/${user.id}`).put(user);
   }
