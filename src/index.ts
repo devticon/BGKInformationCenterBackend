@@ -1,3 +1,5 @@
+import { rsSubscribe } from "./rsSubscribe";
+
 require("dotenv").config();
 
 import "isomorphic-fetch";
@@ -57,3 +59,20 @@ getMany("subscribers").then((users) => {
     });
   });
 });
+rsSubscribe([
+  {
+    source: "https://nowa.bgk.pl/rss.xml",
+    name: "bgk.p",
+    icon: "https://www.bgk.pl/assets/images/favicons/favicon-32x32.png",
+  },
+  {
+    source: "https://www.bankier.pl/rss/wiadomosci.xml",
+    name: "bankier.pl",
+    icon: "http://bankier.pl/favicon.ico",
+  },
+  {
+    source: "http://biznes.pap.pl/pl/rss/8659",
+    name: "biznes.pap.pl",
+    icon: "http://bankier.pl/favicon.ico",
+  },
+]);
