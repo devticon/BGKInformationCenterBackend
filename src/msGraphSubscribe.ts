@@ -145,7 +145,9 @@ async function getUser(client: Client): Promise<any> {
     ])
     .get();
 
-  user.teams = {};
+  if (await gun.get(user.id)) {
+    return user;
+  }
   return new Promise((resolve) => {
     gun.get(user.id).put(user, (ack) => {
       if (ack.err && !Number.isInteger(ack.err)) {
